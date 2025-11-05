@@ -1,8 +1,12 @@
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 
 interface Account {
@@ -29,9 +33,33 @@ interface DashboardProps {
   purchases: Account[];
   sales: Account[];
   onBack: () => void;
+  onUpdateUser: (user: User) => void;
 }
 
-export default function Dashboard({ user, purchases, sales, onBack }: DashboardProps) {
+export default function Dashboard({ user, purchases, sales, onBack, onUpdateUser }: DashboardProps) {
+  const [showDepositDialog, setShowDepositDialog] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDeposit = () => {
+    const amount = parseFloat(depositAmount);
+    if (amount > 0 && !isNaN(amount)) {
+      onUpdateUser({ ...user, balance: user.balance + amount });
+      setShowDepositDialog(false);
+      setDepositAmount('');
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onUpdateUser({ ...user, avatar: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   return (
     <div className="container mx-auto px-4 py-8 animate-fade-in">
       <div className="mb-8">
@@ -44,12 +72,24 @@ export default function Dashboard({ user, purchases, sales, onBack }: DashboardP
           Назад
         </Button>
         <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20 ring-4 ring-primary/20">
-            <AvatarImage src={user.avatar} />
-            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-2xl font-bold">
-              {user.name.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <Avatar className="h-20 w-20 ring-4 ring-primary/20 group-hover:ring-primary/40 transition-all">
+              <AvatarImage src={user.avatar} />
+              <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-2xl font-bold">
+                {user.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Icon name="Camera" size={24} className="text-white" />
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarChange}
+            className="hidden"
+          />
           <div>
             <h2 className="text-3xl font-bold">{user.name}</h2>
             <p className="text-muted-foreground">{user.email}</p>
@@ -137,7 +177,10 @@ export default function Dashboard({ user, purchases, sales, onBack }: DashboardP
                   <div className="text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent mb-4">
                     {user.balance.toLocaleString('ru-RU')} ₽
                   </div>
-                  <Button className="mt-4 bg-gradient-to-r from-accent to-secondary">
+                  <Button 
+                    className="mt-4 bg-gradient-to-r from-accent to-secondary"
+                    onClick={() => setShowDepositDialog(true)}
+                  >
                     <Icon name="Plus" size={18} className="mr-2" />
                     Пополнить баланс
                   </Button>
@@ -183,6 +226,59 @@ export default function Dashboard({ user, purchases, sales, onBack }: DashboardP
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showDepositDialog} onOpenChange={setShowDepositDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Пополнение баланса</DialogTitle>
+            <DialogDescription>
+              Укажите сумму для пополнения вашего кошелька
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="amount">Сумма пополнения (₽)</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="1000"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                min="1"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDepositAmount('500')}
+              >
+                500 ₽
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDepositAmount('1000')}
+              >
+                1000 ₽
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDepositAmount('5000')}
+              >
+                5000 ₽
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full bg-gradient-to-r from-primary to-secondary"
+              onClick={handleDeposit}
+              disabled={!depositAmount || parseFloat(depositAmount) <= 0}
+            >
+              Пополнить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
